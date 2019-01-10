@@ -414,7 +414,7 @@ public class RouteInfoManager {
 
         return null;
     }
-
+    /** 扫描brokerLiveTable这个MAP，找出不存货的broker，踢除broker，并关闭与Broker的链接，销毁资源 */
     public void scanNotActiveBroker() {
         Iterator<Entry<String, BrokerLiveInfo>> it = this.brokerLiveTable.entrySet().iterator();
         while (it.hasNext()) {

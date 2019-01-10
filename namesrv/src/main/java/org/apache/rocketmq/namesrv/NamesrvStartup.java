@@ -41,6 +41,9 @@ import org.apache.rocketmq.srvutil.ServerUtil;
 import org.apache.rocketmq.srvutil.ShutdownHookThread;
 import org.slf4j.LoggerFactory;
 
+/**
+ * NameServer 启动入口
+ */
 public class NamesrvStartup {
 
     private static InternalLogger log;
@@ -54,7 +57,7 @@ public class NamesrvStartup {
     public static NamesrvController main0(String[] args) {
 
         try {
-            NamesrvController controller = createNamesrvController(args);
+            NamesrvController controller = createNamesrvController(args);/** 创建NamesrvController */
             start(controller);
             String tip = "The Name Server boot success. serializeType=" + RemotingCommand.getSerializeTypeConfigInThisServer();
             log.info(tip);
@@ -72,7 +75,9 @@ public class NamesrvStartup {
         System.setProperty(RemotingCommand.REMOTING_VERSION_KEY, Integer.toString(MQVersion.CURRENT_VERSION));
         //PackageConflictDetect.detectFastjson();
 
+        /** 构造命令行选项，-h 帮助，-n NameServer列表*/
         Options options = ServerUtil.buildCommandlineOptions(new Options());
+        /** 解析命令行 -c 配置文件，-p 打印配置项 */
         commandLine = ServerUtil.parseCmdLine("mqnamesrv", args, buildCommandlineOptions(options), new PosixParser());
         if (null == commandLine) {
             System.exit(-1);
@@ -82,12 +87,14 @@ public class NamesrvStartup {
         final NamesrvConfig namesrvConfig = new NamesrvConfig();
         final NettyServerConfig nettyServerConfig = new NettyServerConfig();
         nettyServerConfig.setListenPort(9876);
+        /** 处理-c参数，即配置文件 */
         if (commandLine.hasOption('c')) {
             String file = commandLine.getOptionValue('c');
             if (file != null) {
                 InputStream in = new BufferedInputStream(new FileInputStream(file));
                 properties = new Properties();
                 properties.load(in);
+                /** 通过反射，将配置文件的值赋值到namesrvConfig和nettyServerConfig对象中 */
                 MixAll.properties2Object(properties, namesrvConfig);
                 MixAll.properties2Object(properties, nettyServerConfig);
 
@@ -98,13 +105,18 @@ public class NamesrvStartup {
             }
         }
 
+        /** 处理-p参数，即打印配置项 */
         if (commandLine.hasOption('p')) {
+            /** 获得一个日志输出对象，实质是SLF4J，默认实现Logback，可使用其他日志实现，如log4j */
             InternalLogger console = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_CONSOLE_NAME);
+            /** 在控制台打印从配置文件中获取到的配置项和值 */
             MixAll.printObjectProperties(console, namesrvConfig);
             MixAll.printObjectProperties(console, nettyServerConfig);
+            /** 打印完毕，系统退出，因此-p参数仅为帮助检查配置文件是否正确被加载到上述2个对象中 */
             System.exit(0);
         }
 
+        /** 将命令行中的其他配置（-c,-p以外的）加载到namesrvConfig中去 */
         MixAll.properties2Object(ServerUtil.commandLine2Properties(commandLine), namesrvConfig);
 
         if (null == namesrvConfig.getRocketmqHome()) {
@@ -119,10 +131,10 @@ public class NamesrvStartup {
         configurator.doConfigure(namesrvConfig.getRocketmqHome() + "/conf/logback_namesrv.xml");
 
         log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
-
+        /** 通过logback在日志文件输出配置 */
         MixAll.printObjectProperties(log, namesrvConfig);
         MixAll.printObjectProperties(log, nettyServerConfig);
-
+        /** 构建NamesrvController对象 */
         final NamesrvController controller = new NamesrvController(namesrvConfig, nettyServerConfig);
 
         // remember all configs to prevent discard
@@ -136,13 +148,14 @@ public class NamesrvStartup {
         if (null == controller) {
             throw new IllegalArgumentException("NamesrvController is null");
         }
-
+        /** 初始化NamesrvController，跟入initialize方法 */
         boolean initResult = controller.initialize();
         if (!initResult) {
             controller.shutdown();
             System.exit(-3);
         }
 
+        /** 添加一个钩子，在系统停止时调用 */
         Runtime.getRuntime().addShutdownHook(new ShutdownHookThread(log, new Callable<Void>() {
             @Override
             public Void call() throws Exception {
@@ -150,7 +163,7 @@ public class NamesrvStartup {
                 return null;
             }
         }));
-
+        /** 启动，即启动NettyRemotingServer和FileWatchService */
         controller.start();
 
         return controller;
